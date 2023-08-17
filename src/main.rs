@@ -35,7 +35,7 @@ pub fn main() {
     for lnum in 0..maxlebs {
         // Ec
         file.seek(SeekFrom::Start(lnum * block_size + 0)).unwrap();
-        let mut container = Container::new(file.try_clone().unwrap());
+        let mut container = Container::new(&mut file);
         let ec = EcHdr::from_reader(&mut container, ()).unwrap();
 
         // Vid
@@ -43,7 +43,7 @@ pub fn main() {
             lnum * block_size + u64::from(ec.vid_hdr_offset),
         ))
         .unwrap();
-        let mut container = Container::new(file.try_clone().unwrap());
+        let mut container = Container::new(&mut file);
         let vid = VidHdr::from_reader(&mut container, ()).unwrap();
 
         if let Some(x) = map.get_mut(&vid.vol_id) {
@@ -57,14 +57,14 @@ pub fn main() {
     let lnum = map[&VTBL_VOLID][0]; // TODO: i guess the first entry?
     let start_of_volume = lnum * block_size;
     file.seek(SeekFrom::Start(start_of_volume)).unwrap();
-    let mut container = Container::new(file.try_clone().unwrap());
+    let mut container = Container::new(&mut file);
     let ec = EcHdr::from_reader(&mut container, ()).unwrap();
 
     file.seek(SeekFrom::Start(
         lnum * block_size + u64::from(ec.vid_hdr_offset),
     ))
     .unwrap();
-    let mut container = Container::new(file.try_clone().unwrap());
+    let mut container = Container::new(&mut file);
     let vid = VidHdr::from_reader(&mut container, ()).unwrap();
     assert_eq!(vid.lnum as u64, lnum);
 
@@ -87,8 +87,8 @@ pub fn main() {
     let end_of_volume = start_of_volume + block_size;
     let mut n = 0;
     while file.stream_position().unwrap() < end_of_volume - VtblRecord::SIZE as u64 {
-        let mut container = Container::new(file.try_clone().unwrap());
         let save_before_position = file.stream_position().unwrap();
+        let mut container = Container::new(&mut file);
         match VtblRecord::from_reader(&mut container, ()) {
             Ok(vid) => {
                 vtable.push((n, vid));
@@ -125,14 +125,14 @@ pub fn main() {
             let seek = SeekFrom::Start(lnum * block_size);
             // TODO: we already read the ec, cache it
             file.seek(seek).unwrap();
-            let mut container = Container::new(file.try_clone().unwrap());
+            let mut container = Container::new(&mut file);
             let ec = EcHdr::from_reader(&mut container, ()).unwrap();
 
             file.seek(SeekFrom::Start(
                 lnum * block_size + u64::from(ec.vid_hdr_offset),
             ))
             .unwrap();
-            let mut container = Container::new(file.try_clone().unwrap());
+            let mut container = Container::new(&mut file);
             let vid = VidHdr::from_reader(&mut container, ()).unwrap();
 
             match vid.vol_type {
