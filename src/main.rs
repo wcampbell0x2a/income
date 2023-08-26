@@ -35,16 +35,14 @@ pub fn main() {
     for lnum in 0..maxlebs {
         // Ec
         file.seek(SeekFrom::Start(lnum * block_size + 0)).unwrap();
-        let mut container = Container::new(&mut file);
-        let ec = EcHdr::from_reader(&mut container, ()).unwrap();
+        let (_, ec) = EcHdr::from_reader((&mut file, 0)).unwrap();
 
         // Vid
         file.seek(SeekFrom::Start(
             lnum * block_size + u64::from(ec.vid_hdr_offset),
         ))
         .unwrap();
-        let mut container = Container::new(&mut file);
-        let vid = VidHdr::from_reader(&mut container, ()).unwrap();
+        let (_, vid) = VidHdr::from_reader((&mut file, 0)).unwrap();
 
         if let Some(x) = map.get_mut(&vid.vol_id) {
             x.push(lnum);
@@ -57,15 +55,13 @@ pub fn main() {
     let lnum = map[&VTBL_VOLID][0]; // TODO: i guess the first entry?
     let start_of_volume = lnum * block_size;
     file.seek(SeekFrom::Start(start_of_volume)).unwrap();
-    let mut container = Container::new(&mut file);
-    let ec = EcHdr::from_reader(&mut container, ()).unwrap();
+    let (_, ec) = EcHdr::from_reader((&mut file, 0)).unwrap();
 
     file.seek(SeekFrom::Start(
         lnum * block_size + u64::from(ec.vid_hdr_offset),
     ))
     .unwrap();
-    let mut container = Container::new(&mut file);
-    let vid = VidHdr::from_reader(&mut container, ()).unwrap();
+    let (_, vid) = VidHdr::from_reader((&mut file, 0)).unwrap();
     assert_eq!(vid.lnum as u64, lnum);
 
     let mut vtable = vec![];
@@ -88,9 +84,8 @@ pub fn main() {
     let mut n = 0;
     while file.stream_position().unwrap() < end_of_volume - VtblRecord::SIZE as u64 {
         let save_before_position = file.stream_position().unwrap();
-        let mut container = Container::new(&mut file);
-        match VtblRecord::from_reader(&mut container, ()) {
-            Ok(vid) => {
+        match VtblRecord::from_reader((&mut file, 0)) {
+            Ok((_, vid)) => {
                 vtable.push((n, vid));
             }
             Err(_) => {
@@ -125,15 +120,13 @@ pub fn main() {
             let seek = SeekFrom::Start(lnum * block_size);
             // TODO: we already read the ec, cache it
             file.seek(seek).unwrap();
-            let mut container = Container::new(&mut file);
-            let ec = EcHdr::from_reader(&mut container, ()).unwrap();
+            let (_, ec) = EcHdr::from_reader((&mut file, 0)).unwrap();
 
             file.seek(SeekFrom::Start(
                 lnum * block_size + u64::from(ec.vid_hdr_offset),
             ))
             .unwrap();
-            let mut container = Container::new(&mut file);
-            let vid = VidHdr::from_reader(&mut container, ()).unwrap();
+            let (_, vid) = VidHdr::from_reader((&mut file, 0)).unwrap();
 
             match vid.vol_type {
                 VolType::Static => {
