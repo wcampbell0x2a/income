@@ -1,4 +1,11 @@
-use std::ffi::CString;
+#![feature(int_roundings)]
+
+use std::{
+    collections::HashMap,
+    ffi::CString,
+    fs::File,
+    io::{Read, Seek, SeekFrom, Write},
+};
 
 use deku::prelude::*;
 
@@ -178,4 +185,140 @@ pub struct FmEba {
     pub reserved_pebs: u32,
     #[deku(count = "*reserved_pebs")]
     pub pnum: Vec<u8>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct Image {
+    pub vtable: Vec<(u32, VtblRecord)>,
+    /// (vol_id, Vec<lnum>)
+    pub map: HashMap<u32, Vec<u64>>,
+}
+
+impl Image {
+    pub fn read<RS: Read + Seek>(reader: &mut RS, file_len: u64, block_size: u64) -> Self {
+        let maxlebs = file_len.div_floor(block_size);
+
+        // scanblocks()
+        let mut map = HashMap::<u32, Vec<u64>>::new();
+        for lnum in 0..maxlebs {
+            // Ec
+            reader.seek(SeekFrom::Start(lnum * block_size + 0)).unwrap();
+            let ec = EcHdr::from_reader((reader, 0)).unwrap().1;
+
+            // Vid
+            reader
+                .seek(SeekFrom::Start(
+                    lnum * block_size + u64::from(ec.vid_hdr_offset),
+                ))
+                .unwrap();
+            let vid = VidHdr::from_reader((reader, 0)).unwrap().1;
+
+            if let Some(x) = map.get_mut(&vid.vol_id) {
+                x.push(lnum);
+            } else {
+                map.insert(vid.vol_id, vec![lnum]);
+            }
+        }
+
+        // read the volume table
+        let lnum = map[&VTBL_VOLID][0]; // TODO: i guess the first entry?
+        let start_of_volume = lnum * block_size;
+        reader.seek(SeekFrom::Start(start_of_volume)).unwrap();
+        let ec = EcHdr::from_reader((reader, 0)).unwrap().1;
+
+        reader
+            .seek(SeekFrom::Start(
+                lnum * block_size + u64::from(ec.vid_hdr_offset),
+            ))
+            .unwrap();
+        let vid = VidHdr::from_reader((reader, 0)).unwrap().1;
+        assert_eq!(vid.lnum as u64, lnum);
+
+        let mut vtable = vec![];
+        reader
+            .seek(SeekFrom::Start(start_of_volume + ec.data_offset as u64))
+            .unwrap();
+
+        // TODO: I need to figure this out...
+        //
+        // You'll see this. with data_offset at 0x80, we still need to read something(???) until 0x12c
+        // where a VtblRecord starts.
+        //
+        //   10   │ │00000080│ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │⋄⋄⋄⋄⋄⋄⋄⋄┊⋄⋄⋄⋄⋄⋄⋄⋄│
+        //   11   │ │*       │                         ┊                         │        ┊        │
+        //   12   │ │00000120│ 00 00 00 00 00 00 00 00 ┊ f1 16 c3 6b 00 00 00 01 │⋄⋄⋄⋄⋄⋄⋄⋄┊×•×k⋄⋄⋄•│
+        //   13   │ │00000130│ 00 00 00 01 00 00 00 00 ┊ 02 00 00 05 61 70 70 6c │⋄⋄⋄•⋄⋄⋄⋄┊•⋄⋄•appl│
+        //   14   │ │00000140│ 65 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │e⋄⋄⋄⋄⋄⋄⋄┊⋄⋄⋄⋄⋄⋄⋄⋄│
+        //   15   │ │00000150│ 00 00 00 00 00 00 00 00 ┊ 00 00 00 00 00 00 00 00 │⋄⋄⋄⋄⋄⋄⋄⋄┊⋄⋄⋄⋄⋄⋄⋄⋄│
+
+        let end_of_volume = start_of_volume + block_size;
+        let mut n = 0;
+        while reader.stream_position().unwrap() < end_of_volume - VtblRecord::SIZE as u64 {
+            let save_before_position = reader.stream_position().unwrap();
+            match VtblRecord::from_reader((reader, 0)) {
+                Ok((_, vid)) => {
+                    vtable.push((n, vid));
+                }
+                Err(_) => {
+                    // rewind
+                    reader
+                        .seek(SeekFrom::Start(
+                            save_before_position + VtblRecord::SIZE as u64,
+                        ))
+                        .unwrap();
+                }
+            }
+            n += 1;
+        }
+
+        Self { vtable, map }
+    }
+
+    pub fn extract<RS: Read + Seek>(&self, reader: &mut RS, block_size: u64) {
+        for (volume, v) in &self.vtable {
+            println!("Extracting volume: {:?}", v.name().unwrap());
+
+            let extract_map = &self.map[&volume];
+            let mut file_write = File::options()
+                .write(true)
+                .create(true)
+                .open(v.name().unwrap().to_str().unwrap())
+                .unwrap();
+
+            for lnum in extract_map {
+                let seek = SeekFrom::Start(lnum * block_size);
+                // TODO: we already read the ec, cache it
+                reader.seek(seek).unwrap();
+                let ec = EcHdr::from_reader((reader, 0)).unwrap().1;
+
+                reader
+                    .seek(SeekFrom::Start(
+                        lnum * block_size + u64::from(ec.vid_hdr_offset),
+                    ))
+                    .unwrap();
+                let vid = VidHdr::from_reader((reader, 0)).unwrap().1;
+
+                match vid.vol_type {
+                    VolType::Static => {
+                        reader
+                            .seek(SeekFrom::Start(lnum * block_size + ec.data_offset as u64))
+                            .unwrap();
+                        let mut buf = vec![0; vid.data_size as usize];
+                        // change to io::copy
+                        reader.read_exact(&mut buf).unwrap();
+                        file_write.write_all(&buf).unwrap();
+                    }
+                    VolType::Dynamic => {
+                        reader
+                            .seek(SeekFrom::Start(lnum * block_size + ec.data_offset as u64))
+                            .unwrap();
+                        let mut buf = vec![0; block_size as usize - ec.data_offset as usize];
+                        // change to io::copy
+                        reader.read_exact(&mut buf).unwrap();
+                        file_write.write_all(&buf).unwrap();
+                    }
+                }
+            }
+        }
+    }
 }
