@@ -202,7 +202,7 @@ impl Image {
         let mut map = HashMap::<u32, Vec<u64>>::new();
         for lnum in 0..maxlebs {
             // Ec
-            reader.seek(SeekFrom::Start(lnum * block_size + 0)).unwrap();
+            reader.seek(SeekFrom::Start(lnum * block_size)).unwrap();
             let ec = EcHdr::from_reader((reader, 0)).unwrap().1;
 
             // Vid
