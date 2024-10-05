@@ -13,4 +13,4 @@ categories = ["filesystem", "parsing"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-deku = { git = "https://github.com/sharksforarms/deku", branch = "impl-reader" }
+deku = "0.18.0"

@@ -84,7 +84,7 @@ const UBI_VOL_NAME_MAX: usize = 127;
 
 #[derive(Debug, DekuRead, DekuWrite, PartialEq, Eq, Hash)]
 #[deku(ctx = "endian: deku::ctx::Endian", endian = "endian")]
-#[deku(type = "u8")]
+#[deku(id_type = "u8")]
 pub enum VolType {
     /// Volume can be resized
     Dynamic = 1,
