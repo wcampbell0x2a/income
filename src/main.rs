@@ -1,4 +1,5 @@
 use std::env;
+use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 
 use income::{Image, UBI_EC_HDR_MAGIC};
@@ -33,6 +34,14 @@ pub fn main() {
         image.vtable.len(),
         image.map.len()
     );
+    for v in &image.vtable {
+        let mut file_write = File::options()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(v.1.name().unwrap().to_str().unwrap())
+            .unwrap();
 
-    image.extract(&mut reader, block_size);
+        image.read_volume(&mut reader, &mut file_write, block_size, v)
+    }
 }

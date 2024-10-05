@@ -3,7 +3,6 @@
 use std::{
     collections::HashMap,
     ffi::CString,
-    fs::File,
     io::{Read, Seek, SeekFrom, Write},
 };
 
@@ -278,50 +277,49 @@ impl Image {
         Self { vtable, map }
     }
 
-    pub fn extract<RS: Read + Seek>(&self, reader: &mut RS, block_size: u64) {
-        for (volume, v) in &self.vtable {
-            info!("Extracting volume: {:?}", v.name().unwrap());
+    /// Read and write volume data
+    pub fn read_volume<RS: Read + Seek, W: Write>(
+        &self,
+        reader: &mut RS,
+        writer: &mut W,
+        block_size: u64,
+        volume: &(u32, VtblRecord),
+    ) {
+        let (volume_id, volume) = volume;
+        info!("Extracting volume: {:?}", volume.name().unwrap());
 
-            let extract_map = &self.map[volume];
-            let mut file_write = File::options()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(v.name().unwrap().to_str().unwrap())
+        let extract_map = &self.map[volume_id];
+        for lnum in extract_map {
+            let seek = SeekFrom::Start(lnum * block_size);
+            // TODO: we already read the ec, cache it
+            reader.seek(seek).unwrap();
+            let ec = EcHdr::from_reader((reader, 0)).unwrap().1;
+
+            reader
+                .seek(SeekFrom::Start(
+                    lnum * block_size + u64::from(ec.vid_hdr_offset),
+                ))
                 .unwrap();
+            let vid = VidHdr::from_reader((reader, 0)).unwrap().1;
 
-            for lnum in extract_map {
-                let seek = SeekFrom::Start(lnum * block_size);
-                // TODO: we already read the ec, cache it
-                reader.seek(seek).unwrap();
-                let ec = EcHdr::from_reader((reader, 0)).unwrap().1;
-
-                reader
-                    .seek(SeekFrom::Start(
-                        lnum * block_size + u64::from(ec.vid_hdr_offset),
-                    ))
-                    .unwrap();
-                let vid = VidHdr::from_reader((reader, 0)).unwrap().1;
-
-                match vid.vol_type {
-                    VolType::Static => {
-                        reader
-                            .seek(SeekFrom::Start(lnum * block_size + ec.data_offset as u64))
-                            .unwrap();
-                        let mut buf = vec![0; vid.data_size as usize];
-                        // change to io::copy
-                        reader.read_exact(&mut buf).unwrap();
-                        file_write.write_all(&buf).unwrap();
-                    }
-                    VolType::Dynamic => {
-                        reader
-                            .seek(SeekFrom::Start(lnum * block_size + ec.data_offset as u64))
-                            .unwrap();
-                        let mut buf = vec![0; block_size as usize - ec.data_offset as usize];
-                        // change to io::copy
-                        reader.read_exact(&mut buf).unwrap();
-                        file_write.write_all(&buf).unwrap();
-                    }
+            match vid.vol_type {
+                VolType::Static => {
+                    reader
+                        .seek(SeekFrom::Start(lnum * block_size + ec.data_offset as u64))
+                        .unwrap();
+                    let mut buf = vec![0; vid.data_size as usize];
+                    // change to io::copy
+                    reader.read_exact(&mut buf).unwrap();
+                    writer.write_all(&buf).unwrap();
+                }
+                VolType::Dynamic => {
+                    reader
+                        .seek(SeekFrom::Start(lnum * block_size + ec.data_offset as u64))
+                        .unwrap();
+                    let mut buf = vec![0; block_size as usize - ec.data_offset as usize];
+                    // change to io::copy
+                    reader.read_exact(&mut buf).unwrap();
+                    writer.write_all(&buf).unwrap();
                 }
             }
         }
