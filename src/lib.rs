@@ -8,6 +8,7 @@ use std::{
 };
 
 use deku::prelude::*;
+use log::{info, trace};
 
 pub const VTBL_VOLID: u32 = 0x7fffefff;
 pub const UBI_EC_HDR_MAGIC: &[u8] = b"UBI#";
@@ -225,6 +226,7 @@ impl Image {
         let start_of_volume = lnum * block_size;
         reader.seek(SeekFrom::Start(start_of_volume)).unwrap();
         let ec = EcHdr::from_reader((reader, 0)).unwrap().1;
+        trace!("ec: {ec:02x?}");
 
         reader
             .seek(SeekFrom::Start(
@@ -233,6 +235,7 @@ impl Image {
             .unwrap();
         let vid = VidHdr::from_reader((reader, 0)).unwrap().1;
         assert_eq!(vid.lnum as u64, lnum);
+        trace!("vid: {vid:02x?}");
 
         let mut vtable = vec![];
         reader
@@ -256,8 +259,9 @@ impl Image {
         while reader.stream_position().unwrap() < end_of_volume - VtblRecord::SIZE as u64 {
             let save_before_position = reader.stream_position().unwrap();
             match VtblRecord::from_reader((reader, 0)) {
-                Ok((_, vid)) => {
-                    vtable.push((n, vid));
+                Ok((_, vtbl)) => {
+                    trace!("vtbl: {vtbl:02x?}");
+                    vtable.push((n, vtbl));
                 }
                 Err(_) => {
                     // rewind
@@ -276,7 +280,7 @@ impl Image {
 
     pub fn extract<RS: Read + Seek>(&self, reader: &mut RS, block_size: u64) {
         for (volume, v) in &self.vtable {
-            println!("Extracting volume: {:?}", v.name().unwrap());
+            info!("Extracting volume: {:?}", v.name().unwrap());
 
             let extract_map = &self.map[volume];
             let mut file_write = File::options()

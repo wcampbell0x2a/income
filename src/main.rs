@@ -2,8 +2,10 @@ use std::env;
 use std::io::{Read, Seek, SeekFrom};
 
 use income::{Image, UBI_EC_HDR_MAGIC};
+use log::{info, trace};
 
 pub fn main() {
+    env_logger::init();
     let args: Vec<String> = env::args().collect();
 
     // read UBI Block type image starting with `UBI#` (EcHdr)
@@ -21,11 +23,12 @@ pub fn main() {
             break;
         }
     }
+    trace!("using block size: {:02x?}", block_size);
 
     let image = Image::read(&mut reader, file_len, block_size);
 
     // UbiBlocks
-    println!(
+    info!(
         "{} named volumes, {} physical volumes, blocksize={block_size:#x?}",
         image.vtable.len(),
         image.map.len()

@@ -14,3 +14,5 @@ categories = ["filesystem", "parsing"]
 
 [dependencies]
 deku = "0.18.0"
+env_logger = "*"
+log = "*"
