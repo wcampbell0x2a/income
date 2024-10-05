@@ -278,10 +278,11 @@ impl Image {
         for (volume, v) in &self.vtable {
             println!("Extracting volume: {:?}", v.name().unwrap());
 
-            let extract_map = &self.map[&volume];
+            let extract_map = &self.map[volume];
             let mut file_write = File::options()
                 .write(true)
                 .create(true)
+                .truncate(true)
                 .open(v.name().unwrap().to_str().unwrap())
                 .unwrap();
 
