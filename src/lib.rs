@@ -206,11 +206,7 @@ impl Image {
             let ec = EcHdr::from_reader((reader, 0)).unwrap().1;
 
             // Vid
-            reader
-                .seek(SeekFrom::Start(
-                    lnum * block_size + u64::from(ec.vid_hdr_offset),
-                ))
-                .unwrap();
+            reader.seek(SeekFrom::Start(lnum * block_size + u64::from(ec.vid_hdr_offset))).unwrap();
             let vid = VidHdr::from_reader((reader, 0)).unwrap().1;
 
             if let Some(x) = map.get_mut(&vid.vol_id) {
@@ -227,19 +223,13 @@ impl Image {
         let ec = EcHdr::from_reader((reader, 0)).unwrap().1;
         trace!("ec: {ec:02x?}");
 
-        reader
-            .seek(SeekFrom::Start(
-                lnum * block_size + u64::from(ec.vid_hdr_offset),
-            ))
-            .unwrap();
+        reader.seek(SeekFrom::Start(lnum * block_size + u64::from(ec.vid_hdr_offset))).unwrap();
         let vid = VidHdr::from_reader((reader, 0)).unwrap().1;
         assert_eq!(vid.lnum as u64, lnum);
         trace!("vid: {vid:02x?}");
 
         let mut vtable = vec![];
-        reader
-            .seek(SeekFrom::Start(start_of_volume + ec.data_offset as u64))
-            .unwrap();
+        reader.seek(SeekFrom::Start(start_of_volume + ec.data_offset as u64)).unwrap();
 
         // TODO: I need to figure this out...
         //
@@ -265,9 +255,7 @@ impl Image {
                 Err(_) => {
                     // rewind
                     reader
-                        .seek(SeekFrom::Start(
-                            save_before_position + VtblRecord::SIZE as u64,
-                        ))
+                        .seek(SeekFrom::Start(save_before_position + VtblRecord::SIZE as u64))
                         .unwrap();
                 }
             }
