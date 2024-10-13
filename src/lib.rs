@@ -290,32 +290,25 @@ impl Image {
 
         let extract_map = &self.map[volume_id];
         for lnum in extract_map {
-            let seek = SeekFrom::Start(lnum * block_size);
+            let ec_seek = SeekFrom::Start(lnum * block_size);
             // TODO: we already read the ec, cache it
-            reader.seek(seek).unwrap();
+            reader.seek(ec_seek).unwrap();
             let ec = EcHdr::from_reader((reader, 0)).unwrap().1;
 
-            reader
-                .seek(SeekFrom::Start(
-                    lnum * block_size + u64::from(ec.vid_hdr_offset),
-                ))
-                .unwrap();
+            let vid_seek = lnum * block_size + u64::from(ec.vid_hdr_offset);
+            reader.seek(SeekFrom::Start(vid_seek)).unwrap();
             let vid = VidHdr::from_reader((reader, 0)).unwrap().1;
 
+            let vol_seek = lnum * block_size + ec.data_offset as u64;
+            reader.seek(SeekFrom::Start(vol_seek)).unwrap();
             match vid.vol_type {
                 VolType::Static => {
-                    reader
-                        .seek(SeekFrom::Start(lnum * block_size + ec.data_offset as u64))
-                        .unwrap();
                     let mut buf = vec![0; vid.data_size as usize];
                     // change to io::copy
                     reader.read_exact(&mut buf).unwrap();
                     writer.write_all(&buf).unwrap();
                 }
                 VolType::Dynamic => {
-                    reader
-                        .seek(SeekFrom::Start(lnum * block_size + ec.data_offset as u64))
-                        .unwrap();
                     let mut buf = vec![0; block_size as usize - ec.data_offset as usize];
                     // change to io::copy
                     reader.read_exact(&mut buf).unwrap();
