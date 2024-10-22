@@ -1,6 +1,4 @@
 //! Library and binary for the reading of [UBI](https://www.kernel.org/doc/html/latest/filesystems/ubifs.html) volumes.
-#![feature(int_roundings)]
-
 use std::{
     collections::HashMap,
     ffi::CString,
@@ -197,7 +195,9 @@ pub struct Image {
 
 impl Image {
     pub fn read<RS: Read + Seek>(reader: &mut RS, file_len: u64, block_size: u64) -> Self {
-        let maxlebs = file_len.div_floor(block_size);
+        // save as div_floor, since it's uint. See rust-lang https://github.com/rust-lang/rust/issues/88581
+        // for int_roundings feature
+        let maxlebs = file_len / block_size;
 
         // scanblocks()
         let mut map = HashMap::<u32, Vec<u64>>::new();
