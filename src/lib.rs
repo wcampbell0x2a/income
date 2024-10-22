@@ -1,3 +1,4 @@
+//! Library and binary for the reading of [UBI](https://www.kernel.org/doc/html/latest/filesystems/ubifs.html) volumes.
 #![feature(int_roundings)]
 
 use std::{
@@ -15,7 +16,7 @@ pub const UBI_VID_HDR_MAGIC: &[u8] = b"UBI!";
 
 /// Erase Counter Header
 ///
-/// See <kernel>/drivers/mtd/ubi/ubi-media.h
+/// See `<kernel>/drivers/mtd/ubi/ubi-media.h`
 #[derive(Debug, DekuRead, DekuWrite, PartialEq, Eq, Clone, Hash)]
 #[deku(endian = "big")]
 pub struct EcHdr {
@@ -41,7 +42,7 @@ pub struct EcHdr {
 }
 
 /// Volume Identifier Header
-/// See <kernel>/drivers/mtd/ubi/ubi-media.h
+/// See `<kernel>/drivers/mtd/ubi/ubi-media.h`
 #[derive(Debug, DekuRead, DekuWrite, PartialEq, Eq)]
 #[deku(endian = "big")]
 pub struct VidHdr {
@@ -92,7 +93,7 @@ pub enum VolType {
     Static = 2,
 }
 
-/// See <kernel>/drivers/mtd/ubi/ubi-media.h
+/// See `<kernel>/drivers/mtd/ubi/ubi-media.h`
 #[derive(Debug, DekuRead, DekuWrite, PartialEq, Eq, Hash)]
 #[deku(endian = "big")]
 pub struct VtblRecord {
@@ -132,7 +133,7 @@ impl VtblRecord {
 
 const UBI_FM_MAX_BLOCKS: usize = 32;
 
-/// See <kernel>/drivers/mtd/ubi/ubi-media.h
+/// See `<kernel>/drivers/mtd/ubi/ubi-media.h`
 #[derive(Debug, DekuRead, DekuWrite, PartialEq, Eq, Hash)]
 #[deku(endian = "big")]
 pub struct FmSb {
@@ -149,7 +150,7 @@ pub struct FmSb {
 
 const UBI_FM_MAX_POOL_SIZE: usize = 256;
 
-/// See <kernel>/drivers/mtd/ubi/ubi-media.h
+/// See `<kernel>/drivers/mtd/ubi/ubi-media.h`
 #[derive(Debug, DekuRead, DekuWrite, PartialEq, Eq, Hash)]
 #[deku(endian = "big")]
 pub struct FmScanPool {
@@ -190,7 +191,7 @@ pub struct FmEba {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Image {
     pub vtable: Vec<(u32, VtblRecord)>,
-    /// (vol_id, Vec<lnum>)
+    /// `<vol_id, Vec<lnum>>`
     pub map: HashMap<u32, Vec<u64>>,
 }
 
