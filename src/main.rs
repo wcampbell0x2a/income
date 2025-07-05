@@ -1,12 +1,15 @@
-use std::env;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
+use std::path::Path;
+use std::{env, fs};
 
 use income::{Image, UBI_EC_HDR_MAGIC};
 use log::{info, trace};
 
+mod logger;
+
 pub fn main() {
-    env_logger::init();
+    logger::init();
     let args: Vec<String> = env::args().collect();
 
     // read UBI Block type image starting with `UBI#` (EcHdr)
@@ -35,13 +38,15 @@ pub fn main() {
         image.map.len()
     );
     for v in &image.vtable {
-        let mut file_write = File::options()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(v.1.name().unwrap().to_str().unwrap())
-            .unwrap();
+        let name = v.1.name().unwrap().into_string().unwrap();
+        let filepath =
+            Path::new("ubi-root").join(format!("img-{}_vol-{name}.ubifs", image.ec.image_seq));
+        let _ = fs::create_dir_all(filepath.parent().unwrap());
 
-        image.read_volume(&mut reader, &mut file_write, block_size, v)
+        let mut file_write =
+            File::options().write(true).create(true).truncate(true).open(&filepath).unwrap();
+
+        image.read_volume(&mut reader, &mut file_write, block_size, v);
+        info!("wrote: {}", filepath.display());
     }
 }
