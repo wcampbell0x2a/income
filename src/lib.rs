@@ -189,6 +189,7 @@ pub struct FmEba {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Image {
+    pub ec: EcHdr,
     pub vtable: Vec<(u32, VtblRecord)>,
     /// `<vol_id, Vec<lnum>>`
     pub map: HashMap<u32, Vec<u64>>,
@@ -264,7 +265,7 @@ impl Image {
             n += 1;
         }
 
-        Self { vtable, map }
+        Self { ec, vtable, map }
     }
 
     /// Read and write volume data

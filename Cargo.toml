@@ -14,5 +14,5 @@ categories = ["filesystem", "parsing"]
 
 [dependencies]
 deku = "0.19.1"
-env_logger = "0.11.5"
+env_logger = { version = "0.11.5", features = ["color"] }
 log = "0.4.22"
